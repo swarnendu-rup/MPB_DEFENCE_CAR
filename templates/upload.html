@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Upload Image for Object Detection</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f0f0f0; }
+        .container { max-width: 900px; margin: 0 auto; }
+        .header { text-align: center; margin-bottom: 30px; }
+        .upload-form { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 30px; }
+        .results { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .model-result { margin-bottom: 20px; }
+        .error { color: #f44336; margin-bottom: 20px; }
+        .uploaded-img { max-width: 100%; border-radius: 10px; margin-bottom: 20px; border: 2px solid #333; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Upload Image for Object Detection</h1>
+            <p>Detect objects using all models by uploading an image</p>
+        </div>
+        <div class="upload-form">
+            {% if error %}<div class="error">{{ error }}</div>{% endif %}
+            <form method="POST" enctype="multipart/form-data">
+                <input type="file" name="image" accept="image/*" required>
+                <button type="submit">Upload & Detect</button>
+            </form>
+        </div>
+        {% if image_uploaded %}
+            <div class="results">
+                <h2>Detection Results</h2>
+                <img src="data:image/jpeg;base64,{{ preview_img }}" class="uploaded-img" alt="Preview Image">
+                {% for model_key, detections in results.items() %}
+                    <div class="model-result">
+                        <h3>{{ model_key }} - {{ models[model_key].use_case }}</h3>
+                        {% if detections and detections|length > 0 %}
+                            <ul>
+                                {% for det in detections %}
+                                    <li>{{ det.class }}: {{ (det.confidence * 100)|round(1) }}%</li>
+                                {% endfor %}
+                            </ul>
+                        {% else %}
+                            <div>No detections.</div>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    </div>
+</body>
+</html>

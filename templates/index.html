@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Object Detection with Roboflow</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f0f0f0; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .header { text-align: center; margin-bottom: 30px; }
+        .video-container { text-align: center; margin-bottom: 30px; }
+        .video-stream { border: 3px solid #333; border-radius: 10px; max-width: 100%; height: auto; }
+        .controls { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; margin-bottom: 20px; }
+        .control-group { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .model-buttons { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
+        .model-btn { padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer; transition: all 0.3s; }
+        .model-btn.active { background-color: #4CAF50; color: white; }
+        .model-btn:not(.active) { background-color: #e0e0e0; }
+        .model-btn:hover { opacity: 0.8; }
+        .toggle-btn { padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; }
+        .toggle-btn.enabled { background-color: #4CAF50; color: white; }
+        .toggle-btn.disabled { background-color: #f44336; color: white; }
+        .confidence-slider { width: 200px; margin: 10px; }
+        .detection-info { background: white; padding: 15px; border-radius: 10px; margin-top: 20px; }
+        .detection-list { max-height: 200px; overflow-y: auto; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Object Detection with Roboflow Models</h1>
+            <p>Live detection using laptop camera</p>
+        </div>
+        <div class="video-container">
+            <img src="{{ url_for('video_feed') }}" class="video-stream" alt="Camera Feed">
+        </div>
+        <div class="controls">
+            <div class="control-group">
+                <h3>Model Selection</h3>
+                <div class="model-buttons">
+                    {% for model_key, model_info in models.items() %}
+                    <button class="model-btn {% if model_key == current_model %}active{% endif %}" 
+                            onclick="switchModel('{{ model_key }}')">
+                        {{ model_key }}<br>
+                        <small>{{ model_info.use_case }}</small>
+                    </button>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="control-group">
+                <h3>Detection Control</h3>
+                <button id="toggle-detection" class="toggle-btn enabled" onclick="toggleDetection()">
+                    Detection ON
+                </button>
+                <br><br>
+                <label>Confidence Threshold: <span id="confidence-value">0.5</span></label><br>
+                <input type="range" class="confidence-slider" min="0" max="1" step="0.1" value="0.5" 
+                       onchange="updateConfidence(this.value)">
+            </div>
+        </div>
+        <div class="detection-info">
+            <h3>Current Detections</h3>
+            <div id="detection-list" class="detection-list">
+                No detections yet...
+            </div>
+        </div>
+    </div>
+    <script>
+        let detectionEnabled = true;
+        let currentModel = '{{ current_model }}';
+        function switchModel(modelKey) {
+            fetch('/switch_model', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ model_key: modelKey })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    currentModel = modelKey;
+                    document.querySelectorAll('.model-btn').forEach(btn => btn.classList.remove('active'));
+                    event.target.classList.add('active');
+                }
+            });
+        }
+        function toggleDetection() {
+            fetch('/toggle_detection', { method: 'POST' })
+            .then(response => response.json())
+            .then(data => {
+                detectionEnabled = data.enabled;
+                const btn = document.getElementById('toggle-detection');
+                btn.textContent = detectionEnabled ? 'Detection ON' : 'Detection OFF';
+                btn.className = detectionEnabled ? 'toggle-btn enabled' : 'toggle-btn disabled';
+            });
+        }
+        function updateConfidence(value) {
+            document.getElementById('confidence-value').textContent = value;
+            fetch('/update_confidence', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ confidence: parseFloat(value) })
+            });
+        }
+        function updateDetections() {
+            fetch('/get_detections')
+            .then(response => response.json())
+            .then(data => {
+                const detectionList = document.getElementById('detection-list');
+                if (data.detections.length === 0) {
+                    detectionList.innerHTML = 'No detections...';
+                } else {
+                    detectionList.innerHTML = data.detections
+                        .map(det => `<div>${det.class}: ${(det.confidence * 100).toFixed(1)}%</div>`)
+                        .join('');
+                }
+            });
+        }
+        // Update detections every second
+        setInterval(updateDetections, 1000);
+    </script>
+</body>
+</html>
